@@ -3,6 +3,11 @@ package com.mihir.tvhome;
 import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.Manifest;
+import android.widget.Toast;
+import java.io.File;
+import java.io.FileOutputStream;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -89,6 +94,9 @@ public class MainActivity extends Activity {
     private View gridShade;
     private String[] wallpapers = new String[0];
     private int wallIndex = -1;
+    private int wallpaperRequest;
+    private boolean loadingCustomWallpaper;
+    private static final int STORAGE_PERMISSION = 42;
     private long wallChangedAt;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable rotateWallpaper = this::nextWallpaper;
@@ -305,9 +313,11 @@ public class MainActivity extends Activity {
         inputs.setOnClickListener(v -> showInputs(v));
         wifiPill = pill("Wi-Fi", "◉");
         wifiPill.setOnClickListener(v -> launch(new Intent(Settings.ACTION_WIFI_SETTINGS)));
+        TextView background = pill("Background", "▧");
+        background.setOnClickListener(v -> showBackgroundOptions());
         TextView settings = pill("Settings", "⚙");
         settings.setOnClickListener(v -> launch(new Intent(Settings.ACTION_SETTINGS)));
-        for (TextView p : new TextView[]{inputs, wifiPill, settings}) {
+        for (TextView p : new TextView[]{inputs, wifiPill, background, settings}) {
             right.addView(p, llp(-2, dp(30), dp(10), 0, 0, 0));
             pills.add(p);
         }
@@ -662,6 +672,141 @@ public class MainActivity extends Activity {
 
     // ---------------------------------------------------------------- wallpaper
 
+    private void showBackgroundOptions() {
+        new AlertDialog.Builder(this).setTitle("Background")
+                .setItems(new String[]{"Choose image from TV or USB", "Use rotating nature wallpapers"}, (d, which) -> {
+                    if (which == 0) {
+                        if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
+                            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, STORAGE_PERMISSION);
+                        else browseImages(new File("/storage"));
+                    } else {
+                        getPreferences(MODE_PRIVATE).edit().putBoolean("custom_background", false).apply();
+                        nextWallpaper();
+                    }
+                }).setNegativeButton("Cancel", null).show();
+    }
+
+    @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(request, permissions, results);
+        if (request == STORAGE_PERMISSION) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED)
+                browseImages(new File("/storage"));
+            else Toast.makeText(this, "Storage access is needed to choose an image.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private boolean isImage(File file) {
+        String name = file.getName().toLowerCase(Locale.ROOT);
+        return name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp");
+    }
+
+    private void browseImages(File directory) {
+        List<File> entries = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        boolean root = directory.getAbsolutePath().equals("/storage");
+        if (root) {
+            entries.add(android.os.Environment.getExternalStorageDirectory());
+            names.add("Internal storage (Downloads / Pictures)");
+        } else {
+            File parent = directory.getParentFile();
+            if (directory.equals(android.os.Environment.getExternalStorageDirectory()) || parent == null
+                    || directory.getAbsolutePath().equals("/storage/emulated")) parent = new File("/storage");
+            entries.add(parent);
+            names.add("↑ Back to parent folder");
+        }
+        File[] files = directory.listFiles();
+        if (files != null) {
+            Arrays.sort(files, (a, b) -> {
+                if (a.isDirectory() != b.isDirectory()) return a.isDirectory() ? -1 : 1;
+                return a.getName().compareToIgnoreCase(b.getName());
+            });
+            for (File file : files) {
+                if (file.isHidden() || (root && (file.getName().equals("emulated") || file.getName().equals("self")))) continue;
+                if (!file.isDirectory() && !isImage(file)) continue;
+                entries.add(file);
+                names.add((file.isDirectory() ? "Folder: " : "Image: ") + file.getName());
+            }
+        }
+        String title = root ? "Choose storage · TV or USB" : directory.getName();
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(title)
+                .setItems(names.toArray(new String[0]), (d, which) -> {
+                    File selected = entries.get(which);
+                    if (selected.isDirectory()) browseImages(selected);
+                    else importWallpaper(selected);
+                }).setNegativeButton("Cancel", null).create();
+        dialog.show();
+        if (entries.size() == 1 && !root)
+            Toast.makeText(this, "No images here. Try Download, Pictures, or a USB drive.", Toast.LENGTH_LONG).show();
+    }
+
+    private Bitmap decodeWallpaper(File file) {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        if (options.outWidth <= 0 || options.outHeight <= 0) return null;
+        int sample = 1;
+        while (options.outWidth / sample > 1920 || options.outHeight / sample > 1080) sample *= 2;
+        options.inJustDecodeBounds = false;
+        options.inSampleSize = sample;
+        options.inPreferredConfig = Bitmap.Config.RGB_565;
+        return BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+    }
+
+    private void importWallpaper(File source) {
+        if (loadingCustomWallpaper) return;
+        loadingCustomWallpaper = true;
+        Toast.makeText(this, "Loading background…", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            Bitmap bitmap = null;
+            boolean saved = false;
+            File temporary = new File(getFilesDir(), "background.tmp");
+            try {
+                bitmap = decodeWallpaper(source);
+                if (bitmap != null) {
+                    try (FileOutputStream out = new FileOutputStream(temporary)) {
+                        saved = bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out);
+                    }
+                    saved = saved && temporary.renameTo(new File(getFilesDir(), "background.jpg"));
+                }
+            } catch (Exception | OutOfMemoryError e) { saved = false; }
+            temporary.delete();
+            final Bitmap result = bitmap;
+            final boolean success = saved;
+            runOnUiThread(() -> {
+                loadingCustomWallpaper = false;
+                if (isDestroyed()) { if (result != null) result.recycle(); return; }
+                if (success) {
+                    ++wallpaperRequest;
+                    getPreferences(MODE_PRIVATE).edit().putBoolean("custom_background", true).apply();
+                    handler.removeCallbacks(rotateWallpaper);
+                    showWallpaper(result);
+                    Toast.makeText(this, "Background saved. You can remove the USB drive.", Toast.LENGTH_LONG).show();
+                } else {
+                    if (result != null) result.recycle();
+                    Toast.makeText(this, "Could not open this image. Try a JPG or PNG file.", Toast.LENGTH_LONG).show();
+                }
+            });
+        }).start();
+    }
+
+    private void loadCustomWallpaper() {
+        final int request = ++wallpaperRequest;
+        new Thread(() -> {
+            Bitmap bitmap = null;
+            try { bitmap = decodeWallpaper(new File(getFilesDir(), "background.jpg")); }
+            catch (RuntimeException | OutOfMemoryError ignored) { }
+            final Bitmap result = bitmap;
+            runOnUiThread(() -> {
+                if (request != wallpaperRequest || isDestroyed()) { if (result != null) result.recycle(); return; }
+                if (result != null) showWallpaper(result);
+                else {
+                    getPreferences(MODE_PRIVATE).edit().putBoolean("custom_background", false).apply();
+                    nextWallpaper();
+                }
+            });
+        }).start();
+    }
+
     private ImageView wallpaperLayer() {
         ImageView v = new ImageView(this);
         v.setScaleType(ImageView.ScaleType.CENTER_CROP);
@@ -671,6 +816,11 @@ public class MainActivity extends Activity {
     /** Decode the next photo off the main thread, then crossfade it in over the current one. */
     private void nextWallpaper() {
         handler.removeCallbacks(rotateWallpaper);
+        if (getPreferences(MODE_PRIVATE).getBoolean("custom_background", false)) {
+            loadCustomWallpaper();
+            return;
+        }
+        final int request = ++wallpaperRequest;
         if (wallpapers.length == 0) return;
         if (wallIndex < 0) wallIndex = getPreferences(MODE_PRIVATE).getInt("wallpaper", -1);
         wallIndex = (wallIndex + 1) % wallpapers.length;
@@ -685,7 +835,7 @@ public class MainActivity extends Activity {
                 bm = BitmapFactory.decodeStream(in, null, o);
             } catch (java.io.IOException ignored) { }
             Bitmap result = bm;
-            runOnUiThread(() -> showWallpaper(result));
+            runOnUiThread(() -> { if (request == wallpaperRequest) showWallpaper(result); });
         }).start();
         scheduleWallpaper(WALLPAPER_INTERVAL_MS);
     }
