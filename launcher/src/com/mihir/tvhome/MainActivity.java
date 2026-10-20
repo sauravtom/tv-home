@@ -94,13 +94,14 @@ public class MainActivity extends Activity {
     private View gridShade;
     private String[] wallpapers = new String[0];
     private int wallIndex = -1;
+    private final java.util.Random wallpaperRandom = new java.util.Random();
     private int wallpaperRequest;
     private boolean loadingCustomWallpaper;
     private static final int STORAGE_PERMISSION = 42;
     private long wallChangedAt;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable rotateWallpaper = this::nextWallpaper;
-    static final long WALLPAPER_INTERVAL_MS = 10 * 60 * 1000;
+    static final long WALLPAPER_INTERVAL_MS = 60 * 60 * 1000;
     private TextView greeting, clock, ampm, date, title, wifiPill, appsLabel;
     private int glowColor = 0xFF3A3A3A;
     private ValueAnimator glowAnim;
@@ -158,8 +159,7 @@ public class MainActivity extends Activity {
         if (getPackageManager().getChangedPackages(packageSeq) != null) buildApps();
         if (firstShow) { firstShow = false; playEntrance(); }
         // New photo on return if the current one has been up for the full interval.
-        if (wallIndex < 0 || SystemClock.elapsedRealtime() - wallChangedAt >= WALLPAPER_INTERVAL_MS) nextWallpaper();
-        else scheduleWallpaper(WALLPAPER_INTERVAL_MS - (SystemClock.elapsedRealtime() - wallChangedAt));
+        nextWallpaper();
     }
 
     @Override
@@ -183,6 +183,7 @@ public class MainActivity extends Activity {
         if (inputsPopup != null) inputsPopup.dismiss();
         if (!dockCards.isEmpty()) dockCards.get(0).requestFocus();
         scroll.smoothScrollTo(0, 0);
+        nextWallpaper();
     }
 
     @Override
@@ -674,13 +675,13 @@ public class MainActivity extends Activity {
 
     private void showBackgroundOptions() {
         new AlertDialog.Builder(this).setTitle("Background")
-                .setItems(new String[]{"Choose image from TV or USB", "Use rotating nature wallpapers"}, (d, which) -> {
-                    if (which == 0) {
+                .setItems(new String[]{"Rotate my photos (1 hour)", "Choose a single image from TV or USB", "Use rotating nature backgrounds (1 hour)"}, (d, which) -> {
+                    if (which == 1) {
                         if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
                             requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, STORAGE_PERMISSION);
                         else browseImages(new File("/storage"));
                     } else {
-                        getPreferences(MODE_PRIVATE).edit().putBoolean("custom_background", false).apply();
+                        getPreferences(MODE_PRIVATE).edit().putBoolean("custom_background", false).putBoolean("nature_background", which == 2).apply();
                         nextWallpaper();
                     }
                 }).setNegativeButton("Cancel", null).show();
@@ -821,6 +822,24 @@ public class MainActivity extends Activity {
             return;
         }
         final int request = ++wallpaperRequest;
+        File photoDirectory = new File(getExternalFilesDir(null), "wallpapers");
+        File[] photos = photoDirectory.listFiles(file -> file.isFile() && isImage(file));
+        if (!getPreferences(MODE_PRIVATE).getBoolean("nature_background", false) && photos != null && photos.length > 0) {
+            Arrays.sort(photos);
+            int previous = getPreferences(MODE_PRIVATE).getInt("photo_index", -1);
+            int selected = photos.length == 1 ? 0 : wallpaperRandom.nextInt(photos.length - (previous >= 0 && previous < photos.length ? 1 : 0));
+            if (previous >= 0 && previous < photos.length && selected >= previous && photos.length > 1) selected++;
+            final File photo = photos[selected];
+            getPreferences(MODE_PRIVATE).edit().putInt("photo_index", selected).apply();
+            new Thread(() -> {
+                Bitmap bitmap = null;
+                try { bitmap = decodeWallpaper(photo); } catch (RuntimeException | OutOfMemoryError ignored) { }
+                final Bitmap result = bitmap;
+                runOnUiThread(() -> { if (request == wallpaperRequest) showWallpaper(result); });
+            }).start();
+            scheduleWallpaper(WALLPAPER_INTERVAL_MS);
+            return;
+        }
         if (wallpapers.length == 0) return;
         if (wallIndex < 0) wallIndex = getPreferences(MODE_PRIVATE).getInt("wallpaper", -1);
         wallIndex = (wallIndex + 1) % wallpapers.length;

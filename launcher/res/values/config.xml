@@ -6,7 +6,8 @@
 <resources>
     <!-- Dock apps, left to right. Apps that aren't installed are skipped. -->
     <string-array name="dock_apps">
-        <item>com.apple.atve.androidtv.appletv</item>
+        <item>in.xagi.bookreels.tv</item>
+        <item>in.xagi.ramen.tv</item>
         <item>com.google.android.youtube.tv</item>
         <item>in.startv.hotstar</item>
         <item>com.netflix.ninja</item>
