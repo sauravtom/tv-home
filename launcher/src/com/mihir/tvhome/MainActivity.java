@@ -249,6 +249,7 @@ public class MainActivity extends Activity {
         title = text(34, "sans-serif-light", Color.WHITE);
         title.setShadowLayer(dp(18), 0, 0, 0x66000000);
         title.setSingleLine(true);
+        title.setVisibility(View.GONE);
         bottom.addView(title, new LinearLayout.LayoutParams(-2, -2));
         ((LinearLayout.LayoutParams) title.getLayoutParams()).setMargins(dp(8), 0, 0, dp(14));
 
@@ -286,14 +287,14 @@ public class MainActivity extends Activity {
         left.setOrientation(LinearLayout.VERTICAL);
         LinearLayout clockRow = new LinearLayout(this);
         clockRow.setGravity(Gravity.BOTTOM);
-        clock = text(54, "sans-serif-thin", Color.WHITE);
+        clock = text(54, "sans-serif-medium", Color.WHITE);
         clock.setIncludeFontPadding(false);
         clockRow.addView(clock);
         ampm = text(12, "sans-serif-light", 0xCCFFFFFF);
         clockRow.addView(ampm, llp(-2, -2, dp(6), 0, 0, dp(8)));
         left.addView(clockRow, llp(-2, -2, 0, dp(2), 0, dp(2)));
 
-        date = text(18, "sans-serif-medium", 0xE6FFFFFF);
+        date = text(22, "sans-serif-medium", 0xE6FFFFFF);
         date.setSingleLine(true);
         date.setPadding(0, 0, dp(16), 0); // letterSpacing is not counted in the measured width
         date.setLetterSpacing(0.06f);
@@ -301,7 +302,7 @@ public class MainActivity extends Activity {
         TextView eventHeading = text(11, "sans-serif-medium", 0xBBFFFFFF);
         eventHeading.setText("UPCOMING BIRTHDAYS");
         left.addView(eventHeading, llp(-1, -2, 0, dp(20), 0, dp(6)));
-        upcoming = text(15, "sans-serif-medium", Color.WHITE);
+        upcoming = text(19, "sans-serif-medium", Color.WHITE);
         upcoming.setLineSpacing(dp(6), 1f);
         left.addView(upcoming);
         for (TextView t : new TextView[]{clock, ampm, date, eventHeading, upcoming}) t.setShadowLayer(dp(10), 0, dp(1), 0xB3000000);
@@ -316,14 +317,19 @@ public class MainActivity extends Activity {
         wifiPill.setOnClickListener(v -> launch(new Intent(Settings.ACTION_WIFI_SETTINGS)));
         TextView background = pill("Background", "▧");
         background.setOnClickListener(v -> showBackgroundOptions());
-        TextView next = pill("Next bg", "›");
+        TextView next = pill("Next photo", "›");
         next.setOnClickListener(v -> {
             getPreferences(MODE_PRIVATE).edit().putBoolean("custom_background", false).apply();
             nextWallpaper();
         });
+        TextView preview = pill("Preview screensaver", "▶");
+        preview.setOnClickListener(v -> {
+            if (!launch(new Intent().setComponent(new ComponentName("com.android.systemui", "com.android.systemui.Somnambulator"))))
+                Toast.makeText(this, "Open Settings → Screen saver → Start now", Toast.LENGTH_LONG).show();
+        });
         TextView settings = pill("Settings", "⚙");
         settings.setOnClickListener(v -> launch(new Intent(Settings.ACTION_SETTINGS)));
-        for (TextView p : new TextView[]{inputs, wifiPill, background, next, settings}) {
+        for (TextView p : new TextView[]{inputs, wifiPill, background, next, preview, settings}) {
             right.addView(p, llp(-2, dp(30), dp(10), 0, 0, 0));
             pills.add(p);
         }
@@ -472,6 +478,7 @@ public class MainActivity extends Activity {
         label.setSingleLine(true);
         label.setGravity(Gravity.CENTER);
         label.setAlpha(0f);
+        label.setVisibility(View.GONE);
         if (!inDock) box.addView(label, llp(-1, -2, 0, dp(10), 0, 0));
 
         card.setOnClickListener(v -> launch(new Intent(Intent.ACTION_MAIN)
@@ -633,8 +640,14 @@ public class MainActivity extends Activity {
         boolean is24 = android.text.format.DateFormat.is24HourFormat(this);
         clock.setText(new SimpleDateFormat(is24 ? "H:mm" : "h:mm", Locale.getDefault()).format(now.getTime()));
         ampm.setText(is24 ? "" : (h < 12 ? "AM" : "PM"));
-        date.setText(new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now.getTime()));
+        date.setText(new SimpleDateFormat("EEEE", Locale.getDefault()).format(now.getTime()) + ", " + eventDate(now));
         updateBirthdays(now);
+    }
+
+    private String eventDate(Calendar value) {
+        int day = value.get(Calendar.DAY_OF_MONTH);
+        String suffix = day >= 11 && day <= 13 ? "th" : day % 10 == 1 ? "st" : day % 10 == 2 ? "nd" : day % 10 == 3 ? "rd" : "th";
+        return day + suffix + " " + new SimpleDateFormat("MMM", Locale.ENGLISH).format(value.getTime()).toUpperCase(Locale.ENGLISH);
     }
 
     private void updateBirthdays(Calendar now) {
@@ -668,7 +681,7 @@ public class MainActivity extends Activity {
                 Event event = events.get(i);
                 if (i > 0) text.append("\n");
                 text.append(event.name).append("  ·  ");
-                text.append(event.day.equals(today) ? "Today 🎂" : new SimpleDateFormat("d MMM", Locale.getDefault()).format(event.day.getTime()));
+                text.append(event.day.equals(today) ? "Today 🎂" : eventDate(event.day));
             }
             upcoming.setText(text.toString());
         } catch (Exception ignored) { upcoming.setText("No birthdays added"); }
