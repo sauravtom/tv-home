@@ -19,7 +19,7 @@ XML
 XML
  "$BT/aapt2" compile --dir "$B/res" -o "$B/res.zip"
  "$BT/aapt2" link -o "$B/base.apk" -I "$JAR" --manifest "$B/AndroidManifest.xml" --java "$B/gen" --min-sdk-version 28 --target-sdk-version 28 "$B/res.zip"
- javac --release 11 -classpath "$JAR" -d "$B/classes" src/in/xagi/tvstream/MainActivity.java
+ javac --release 11 -classpath "$JAR" -d "$B/classes" src/in/xagi/tvstream/*.java
  "$BT/d8" --min-api 28 --lib "$JAR" --output "$B/dex" $(find "$B/classes" -name '*.class')
  cp "$B/base.apk" "$B/unsigned.apk"
  (cd "$B/dex" && zip -q -u ../unsigned.apk classes.dex)

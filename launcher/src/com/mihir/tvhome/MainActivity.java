@@ -101,7 +101,7 @@ public class MainActivity extends Activity {
     private long wallChangedAt;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable rotateWallpaper = this::nextWallpaper;
-    static final long WALLPAPER_INTERVAL_MS = 60 * 60 * 1000;
+    static final long WALLPAPER_INTERVAL_MS = 5 * 60 * 1000;
     private TextView greeting, clock, ampm, date, title, wifiPill, appsLabel;
     private int glowColor = 0xFF3A3A3A;
     private ValueAnimator glowAnim;
@@ -316,9 +316,14 @@ public class MainActivity extends Activity {
         wifiPill.setOnClickListener(v -> launch(new Intent(Settings.ACTION_WIFI_SETTINGS)));
         TextView background = pill("Background", "▧");
         background.setOnClickListener(v -> showBackgroundOptions());
+        TextView next = pill("Next bg", "›");
+        next.setOnClickListener(v -> {
+            getPreferences(MODE_PRIVATE).edit().putBoolean("custom_background", false).apply();
+            nextWallpaper();
+        });
         TextView settings = pill("Settings", "⚙");
         settings.setOnClickListener(v -> launch(new Intent(Settings.ACTION_SETTINGS)));
-        for (TextView p : new TextView[]{inputs, wifiPill, background, settings}) {
+        for (TextView p : new TextView[]{inputs, wifiPill, background, next, settings}) {
             right.addView(p, llp(-2, dp(30), dp(10), 0, 0, 0));
             pills.add(p);
         }
@@ -675,7 +680,7 @@ public class MainActivity extends Activity {
 
     private void showBackgroundOptions() {
         new AlertDialog.Builder(this).setTitle("Background")
-                .setItems(new String[]{"Rotate my photos (1 hour)", "Choose a single image from TV or USB", "Use rotating nature backgrounds (1 hour)"}, (d, which) -> {
+                .setItems(new String[]{"Rotate my photos (5 minutes)", "Choose a single image from TV or USB", "Use rotating nature backgrounds (5 minutes)"}, (d, which) -> {
                     if (which == 1) {
                         if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
                             requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, STORAGE_PERMISSION);
