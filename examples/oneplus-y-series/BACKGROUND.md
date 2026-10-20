@@ -26,3 +26,17 @@ excluded from GitHub backups.
 
 Use **Next bg** in the Home top bar to skip immediately to another image in the active rotation.
 BookReels and Ramen follow YouTube, Hotstar, Netflix and Prime Video in the dock.
+
+## Clock and birthdays
+
+The date uses a larger font, with no greeting. The next three recurring birthdays appear below
+it, ordered by their next occurrence, including the next year when a date has passed.
+Household birthday data lives in the app's external `files/birthdays.json`, separate from source
+and excluded from GitHub. Each entry has `name`, `month` (1–12), and `day`.
+
+## Photo-only screensaver
+
+The launcher also provides **My photo screensaver**, an Android DreamService. It reads only the
+uploaded photo album, regardless of Home's nature-background setting, and changes photos every
+five minutes. Remote input dismisses the screensaver normally. The previous Android screensaver
+selection is saved locally under the ignored backup directory before changing the TV setting.
