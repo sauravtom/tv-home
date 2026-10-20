@@ -40,3 +40,9 @@ The launcher also provides **My photo screensaver**, an Android DreamService. It
 uploaded photo album, regardless of Home's nature-background setting, and changes photos every
 five minutes. Remote input dismisses the screensaver normally. The previous Android screensaver
 selection is saved locally under the ignored backup directory before changing the TV setting.
+
+Home visibility controls: **Next photo** skips a background; **Preview screensaver** starts the
+photo screensaver immediately without waiting for the idle timeout. Press a remote button to
+return. The clock uses a medium weight, the date and birthdays use larger text, and dates use
+ordinal days and uppercase month abbreviations (for example, `4th NOV`). Focused app names are
+hidden; the logo and focus ring identify the selection.
