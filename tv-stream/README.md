@@ -9,8 +9,11 @@ APIs; Ramen reads the existing published series API. No backend writes or creden
 - Native Android player streams directly from the published HTTPS URLs. No downloads,
   application disk cache, image cache, or offline media library.
 - Small local resume preferences only; Android and the media stack use temporary RAM buffers.
-- BookReels stories currently provide narration; the illustrated slideshow and social/account
-  features of the main apps are not included in these minimal TV clients.
+- BookReels story illustrations and captions follow narration beat timestamps, including seeks
+  and pause/resume. Images are streamed into a 4 MiB decoded-image memory cache, never disk.
+  Images are decoded to at most 1280 x 720 with a 3 MiB transfer limit per illustration.
+  One image request runs at a time, prefetching the next beat when possible.
+  Social/account features of the main apps are not included in these minimal TV clients.
 - Ramen keeps portrait video aspect ratio on a landscape TV.
 
 Build on the existing AWS machine with JDK 17 and the existing Android SDK:
