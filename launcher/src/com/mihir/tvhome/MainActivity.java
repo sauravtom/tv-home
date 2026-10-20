@@ -183,7 +183,7 @@ public class MainActivity extends Activity {
         if (inputsPopup != null) inputsPopup.dismiss();
         if (!dockCards.isEmpty()) dockCards.get(0).requestFocus();
         scroll.smoothScrollTo(0, 0);
-        nextWallpaper();
+        // onResume follows onNewIntent and selects one new wallpaper.
     }
 
     @Override
