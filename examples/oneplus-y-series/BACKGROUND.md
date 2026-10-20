@@ -24,7 +24,7 @@ updating the launcher preserves them, while uninstalling it removes its app file
 The supplied ZIP remains the original photo backup. Personal photos and resized copies are
 excluded from GitHub backups.
 
-Use **Next bg** in the Home top bar to skip immediately to another image in the active rotation.
+Use **Next photo** in the Home top bar to skip immediately to another image in the active rotation.
 BookReels and Ramen follow YouTube, Hotstar, Netflix and Prime Video in the dock.
 
 ## Clock and birthdays
