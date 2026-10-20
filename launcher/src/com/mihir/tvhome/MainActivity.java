@@ -102,7 +102,7 @@ public class MainActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable rotateWallpaper = this::nextWallpaper;
     static final long WALLPAPER_INTERVAL_MS = 5 * 60 * 1000;
-    private TextView greeting, clock, ampm, date, title, wifiPill, appsLabel;
+    private TextView upcoming, clock, ampm, date, title, wifiPill, appsLabel;
     private int glowColor = 0xFF3A3A3A;
     private ValueAnimator glowAnim;
     private int lastFocusedId = View.NO_ID;
@@ -284,12 +284,6 @@ public class MainActivity extends Activity {
 
         LinearLayout left = new LinearLayout(this);
         left.setOrientation(LinearLayout.VERTICAL);
-        greeting = text(10, "sans-serif-medium", 0xB3FFFFFF);
-        greeting.setLetterSpacing(0.25f);
-        greeting.setSingleLine(true);
-        greeting.setPadding(0, 0, dp(16), 0);
-        left.addView(greeting);
-
         LinearLayout clockRow = new LinearLayout(this);
         clockRow.setGravity(Gravity.BOTTOM);
         clock = text(54, "sans-serif-thin", Color.WHITE);
@@ -299,12 +293,18 @@ public class MainActivity extends Activity {
         clockRow.addView(ampm, llp(-2, -2, dp(6), 0, 0, dp(8)));
         left.addView(clockRow, llp(-2, -2, 0, dp(2), 0, dp(2)));
 
-        date = text(10, "sans-serif-medium", 0x99FFFFFF);
+        date = text(18, "sans-serif-medium", 0xE6FFFFFF);
         date.setSingleLine(true);
         date.setPadding(0, 0, dp(16), 0); // letterSpacing is not counted in the measured width
-        date.setLetterSpacing(0.22f);
+        date.setLetterSpacing(0.06f);
         left.addView(date);
-        for (TextView t : new TextView[]{greeting, clock, ampm, date}) t.setShadowLayer(dp(10), 0, dp(1), 0xB3000000);
+        TextView eventHeading = text(11, "sans-serif-medium", 0xBBFFFFFF);
+        eventHeading.setText("UPCOMING BIRTHDAYS");
+        left.addView(eventHeading, llp(-1, -2, 0, dp(20), 0, dp(6)));
+        upcoming = text(15, "sans-serif-medium", Color.WHITE);
+        upcoming.setLineSpacing(dp(6), 1f);
+        left.addView(upcoming);
+        for (TextView t : new TextView[]{clock, ampm, date, eventHeading, upcoming}) t.setShadowLayer(dp(10), 0, dp(1), 0xB3000000);
         header.addView(left, new FrameLayout.LayoutParams(dp(420), -2, Gravity.START | Gravity.TOP));
 
         LinearLayout right = new LinearLayout(this);
@@ -630,11 +630,48 @@ public class MainActivity extends Activity {
     private void updateClock() {
         Calendar now = Calendar.getInstance();
         int h = now.get(Calendar.HOUR_OF_DAY);
-        greeting.setText(h < 5 ? "GOOD NIGHT" : h < 12 ? "GOOD MORNING" : h < 17 ? "GOOD AFTERNOON" : "GOOD EVENING");
         boolean is24 = android.text.format.DateFormat.is24HourFormat(this);
         clock.setText(new SimpleDateFormat(is24 ? "H:mm" : "h:mm", Locale.getDefault()).format(now.getTime()));
         ampm.setText(is24 ? "" : (h < 12 ? "AM" : "PM"));
-        date.setText(new SimpleDateFormat("EEEE  d MMMM", Locale.getDefault()).format(now.getTime()).toUpperCase(Locale.getDefault()));
+        date.setText(new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(now.getTime()));
+        updateBirthdays(now);
+    }
+
+    private void updateBirthdays(Calendar now) {
+        // Household data lives separately from the source and survives APK updates.
+        File file = new File(getExternalFilesDir(null), "birthdays.json");
+        class Event { String name; Calendar day; }
+        List<Event> events = new ArrayList<>();
+        try (java.io.FileInputStream in = new java.io.FileInputStream(file)) {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[1024]; int count;
+            while ((count = in.read(buffer)) != -1) {
+                if (bytes.size() + count > 32 * 1024) throw new java.io.IOException("Calendar too large");
+                bytes.write(buffer, 0, count);
+            }
+            org.json.JSONArray entries = new org.json.JSONArray(bytes.toString("UTF-8"));
+            Calendar today = (Calendar) now.clone();
+            today.set(Calendar.HOUR_OF_DAY, 0); today.set(Calendar.MINUTE, 0);
+            today.set(Calendar.SECOND, 0); today.set(Calendar.MILLISECOND, 0);
+            for (int i = 0; i < entries.length(); i++) {
+                org.json.JSONObject entry = entries.getJSONObject(i);
+                Event event = new Event(); event.name = entry.getString("name");
+                event.day = (Calendar) today.clone();
+                event.day.set(Calendar.MONTH, entry.getInt("month") - 1);
+                event.day.set(Calendar.DAY_OF_MONTH, entry.getInt("day"));
+                if (event.day.before(today)) event.day.add(Calendar.YEAR, 1);
+                events.add(event);
+            }
+            Collections.sort(events, (a, b) -> a.day.compareTo(b.day));
+            StringBuilder text = new StringBuilder();
+            for (int i = 0; i < Math.min(3, events.size()); i++) {
+                Event event = events.get(i);
+                if (i > 0) text.append("\n");
+                text.append(event.name).append("  ·  ");
+                text.append(event.day.equals(today) ? "Today 🎂" : new SimpleDateFormat("d MMM", Locale.getDefault()).format(event.day.getTime()));
+            }
+            upcoming.setText(text.toString());
+        } catch (Exception ignored) { upcoming.setText("No birthdays added"); }
     }
 
     private void updateWifi() {

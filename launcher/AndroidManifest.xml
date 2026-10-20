@@ -45,5 +45,9 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+        <service android:name=".PhotoDreamService" android:exported="true"
+            android:label="My photo screensaver" android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter><action android:name="android.service.dreams.DreamService" /></intent-filter>
+        </service>
     </application>
 </manifest>
