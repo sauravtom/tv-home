@@ -1,0 +1,10 @@
+# OnePlus Y Series, Android 9. Optional extras only; never uninstall or clear data.
+# Preserve streaming, Play services/store, voice, casting, inputs and remote services.
+com.smartdevice.common.demonow
+fusion.android.tv.demo
+com.google.android.tvrecommendations
+com.google.android.leanbacklauncher.recommendations
+com.google.android.leanbacklauncher.partnercustomizer
+android.autoinstalls.config.skyworth
+com.google.android.feedback
+com.google.android.tv.bugreportsender
